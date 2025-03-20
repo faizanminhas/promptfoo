@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ResultsTable from './ResultsTable';
 import { useStore } from './store';
@@ -75,7 +76,7 @@ describe('ResultsTable Metrics Display', () => {
   };
 
   const renderWithProviders = (ui: React.ReactElement) => {
-    return render(ui);
+    return render(<MemoryRouter>{ui}</MemoryRouter>);
   };
 
   beforeEach(() => {
@@ -260,5 +261,149 @@ describe('ResultsTable Metrics Display', () => {
       const element = screen.getByText('null');
       expect(element).toBeInTheDocument();
     });
+  });
+});
+
+describe('ResultsTable URL Parameters', () => {
+  const mockTable = {
+    body: Array(100)
+      .fill(0)
+      .map((_, i) => ({
+        outputs: [
+          {
+            pass: true,
+            score: 1,
+            text: `test output ${i}`,
+            id: `output-${i}`,
+          },
+        ],
+        test: {},
+        vars: [],
+      })),
+    head: {
+      prompts: [
+        {
+          provider: 'test-provider',
+        },
+      ],
+      vars: [],
+    },
+  };
+
+  const defaultProps = {
+    columnVisibility: {},
+    failureFilter: {},
+    filterMode: 'all' as const,
+    maxTextLength: 100,
+    onFailureFilterToggle: vi.fn(),
+    onSearchTextChange: vi.fn(),
+    searchText: '',
+    showStats: true,
+    wordBreak: 'break-word' as const,
+    setFilterMode: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.mocked(useStore).mockImplementation(() => ({
+      config: {},
+      evalId: '123',
+      inComparisonMode: false,
+      setTable: vi.fn(),
+      table: mockTable,
+      version: 4,
+      renderMarkdown: true,
+    }));
+  });
+
+  it('initializes pagination from URL parameters', async () => {
+    // Render with MemoryRouter using initial entries with the desired URL params
+    // Using page_size=50 which is likely one of the standard options
+    render(
+      <MemoryRouter initialEntries={['/?page=3&page_size=50']}>
+        <Routes>
+          <Route path="/" element={<ResultsTable {...defaultProps} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Find the page input element and verify page number
+    const pageInput = await screen.findByTestId('pagination-page-input');
+    const inputElement = pageInput.querySelector('input');
+    expect(inputElement).toHaveValue(3);
+
+    // Find page size selector and verify its value
+    const pageSizeSelect = await screen.findByTestId('pagination-size-select');
+    expect(pageSizeSelect).toHaveTextContent('50');
+  });
+
+  it('updates URL when clicking next page button', async () => {
+    const originalScrollTo = window.scrollTo;
+    window.scrollTo = vi.fn();
+
+    const largeTable = {
+      ...mockTable,
+      body: Array(500)
+        .fill(0)
+        .map((_, i) => ({
+          outputs: [
+            {
+              pass: true,
+              score: 1,
+              text: `test output ${i}`,
+              id: `output-${i}`,
+            },
+          ],
+          test: {},
+          vars: [],
+        })),
+    };
+
+    vi.mocked(useStore).mockImplementation(() => ({
+      config: {},
+      evalId: '123',
+      inComparisonMode: false,
+      setTable: vi.fn(),
+      table: largeTable,
+      version: 4,
+      renderMarkdown: true,
+    }));
+
+    let history: any;
+    const TestRouter = ({ children }: { children: React.ReactNode }) => {
+      const [searchParams] = useSearchParams();
+      history = {
+        page: searchParams.get('page'),
+        pageSize: searchParams.get('page_size'),
+      };
+      return children;
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/?page=1&page_size=50']}>
+        <TestRouter>
+          <ResultsTable {...defaultProps} />
+        </TestRouter>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(history.page).toBe('1');
+      expect(history.pageSize).toBe('50');
+    });
+
+    const nextButton = await screen.findByTestId('pagination-next-button');
+    expect(nextButton).not.toBeDisabled();
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(history.page).toBe('2');
+      expect(history.pageSize).toBe('50');
+    });
+
+    const pageInput = screen.getByTestId('pagination-page-input');
+    const inputElement = pageInput.querySelector('input');
+    expect(inputElement).toHaveValue(2);
+
+    window.scrollTo = originalScrollTo;
   });
 });

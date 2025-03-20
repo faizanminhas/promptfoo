@@ -33,6 +33,7 @@ interface MockEvalOutputCellProps extends EvalOutputCellProps {
   firstOutput: EvaluateTableOutput;
   searchText: string;
   showDiffs: boolean;
+  rowId: string;
 }
 
 describe('EvalOutputCell', () => {
@@ -100,6 +101,7 @@ describe('EvalOutputCell', () => {
     searchText: '',
     showDiffs: false,
     showStats: true,
+    rowId: 'test-row-id',
   };
 
   beforeEach(() => {
@@ -250,6 +252,7 @@ describe('EvalOutputCell provider override', () => {
     searchText: '',
     showDiffs: false,
     showStats: true,
+    rowId: 'test-row-id',
   };
 
   it('shows provider override when test case has a provider string', () => {

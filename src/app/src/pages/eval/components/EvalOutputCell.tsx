@@ -32,6 +32,8 @@ export interface EvalOutputCellProps {
   promptIndex: number;
   showStats: boolean;
   onRating: (isPass?: boolean, score?: number, comment?: string) => void;
+  onCopyPermalink?: (rowId: string) => void;
+  rowId: string;
 }
 
 function EvalOutputCell({
@@ -44,6 +46,8 @@ function EvalOutputCell({
   showDiffs,
   searchText,
   showStats,
+  onCopyPermalink,
+  rowId,
 }: EvalOutputCellProps & {
   firstOutput: EvaluateTableOutput;
   showDiffs: boolean;
@@ -391,6 +395,17 @@ function EvalOutputCell({
             </Tooltip>
           </span>
         </>
+      )}
+      {shiftKeyPressed && onCopyPermalink && (
+        <span
+          className="action"
+          onClick={() => onCopyPermalink(rowId)}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <Tooltip title="Copy permalink to this row">
+            <span>🔗</span>
+          </Tooltip>
+        </span>
       )}
       {output.prompt && (
         <>
